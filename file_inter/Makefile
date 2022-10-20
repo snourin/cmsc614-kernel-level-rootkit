@@ -1,5 +1,10 @@
 obj-m += rootkit.o
 
+#rootkit.o:
+#	gcc -c rootkit.c
+
+#obj-m += rootkit.o
+
 all:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
 

